@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Timer PWA</title>
+
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+   
+    <style>
+        /* Custom styles for the timer display */
+        #timer-display {
+            font-family: 'Inter', sans-serif;
+            letter-spacing: 2px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+
+        .shadow-glow {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Responsive container to keep it centered on all screens */
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #F3F4F6;
+        }
+
+        /* Add a subtle animation to the buttons on hover/tap */
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 flex items-center justify-center p-4">
+
+    <!-- Main Application Container -->
+    <div id="app" class="w-full max-w-sm bg-white p-6 rounded-3xl shadow-2xl shadow-blue-300/50">
+
+        <h1 id="mode-title" class="text-3xl font-extrabold text-center mb-6 text-blue-700">
+            Focus Mode
+        </h1>
+
+        <!-- Timer Display -->
+        <div class="flex justify-center mb-10">
+            <div id="timer-display"
+                 class="text-8xl font-mono text-white bg-blue-600 rounded-2xl p-6 shadow-glow w-full text-center tracking-wider">
+                25:00
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-around space-x-4">
+            <button id="start-btn" class="btn-primary flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition duration-150">
+                <span id="start-icon">▶️</span> Start
+            </button>
+            <button id="reset-btn" class="btn-primary w-24 bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-xl transition duration-150">
+                <span id="reset-icon">🔄</span> Reset
+            </button>
+        </div>
+
+        <!-- Status Message Box -->
+        <div id="status-box" class="mt-8 p-4 bg-blue-100 text-blue-800 rounded-lg text-sm text-center font-medium transition duration-300">
+            Ready to focus! (25 min session)
+        </div>
+
+    </div>
+
+    <script>
+        const FOCUS_TIME = 25 * 60; // 25 minutes in seconds
+        const BREAK_TIME = 5 * 60;  // 5 minutes in seconds
+
+        let timeRemaining = FOCUS_TIME;
+        let isRunning = false;
+        let intervalId = null;
+        let isFocusMode = true;
+
+        const timerDisplay = document.getElementById('timer-display');
+        const modeTitle = document.getElementById('mode-title');
+        const statusBox = document.getElementById('status-box');
+        const startBtn = document.getElementById('start-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const startIcon = document.getElementById('start-icon');
+
+        /**
+         * Formats seconds into MM:SS string.
+         * @param {number} totalSeconds - The total number of seconds.
+         * @returns {string} Formatted time string.
+         */
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        /**
+         * Updates the UI elements based on the current state.
+         */
+        function updateUI() {
+            timerDisplay.textContent = formatTime(timeRemaining);
+            const bgColor = isFocusMode ? 'bg-blue-600' : 'bg-green-600';
+            const titleColor = isFocusMode ? 'text-blue-700' : 'text-green-700';
+
+            // Update timer background color
+            timerDisplay.className = `text-8xl font-mono text-white ${bgColor} rounded-2xl p-6 shadow-glow w-full text-center tracking-wider`;
+
+            // Update title
+            modeTitle.className = `text-3xl font-extrabold text-center mb-6 ${titleColor}`;
+            modeTitle.textContent = isFocusMode ? 'Focus Mode' : 'Break Time';
+
+            // Update status box
+            const statusBg = isFocusMode ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800';
+            statusBox.className = `mt-8 p-4 ${statusBg} rounded-lg text-sm text-center font-medium transition duration-300`;
+            statusBox.textContent = isRunning
+                ? (isFocusMode ? 'Time to work!' : 'Enjoy your rest!')
+                : (isFocusMode ? `Ready to focus! (${formatTime(FOCUS_TIME)} session)` : `Ready for break! (${formatTime(BREAK_TIME)} session)`);
+
+            // Update start/pause button text
+            startBtn.classList.toggle('bg-green-500', !isRunning);
+            startBtn.classList.toggle('hover:bg-green-600', !isRunning);
+            startBtn.classList.toggle('bg-yellow-500', isRunning);
+            startBtn.classList.toggle('hover:bg-yellow-600', isRunning);
+
+            startBtn.innerHTML = isRunning
+                ? '<span id="start-icon">⏸️</span> Pause'
+                : '<span id="start-icon">▶️</span> Start';
+        }
+
+        /**
+         * Decrements the timer and handles mode switching.
+         */
+        function tick() {
+            if (timeRemaining > 0) {
+                timeRemaining--;
+                updateUI();
+            } else {
+                // Timer finished, switch mode
+                clearInterval(intervalId);
+                isRunning = false;
+                
+                // Play a simple sound notification (Tone.js is not used here to keep it simple)
+                try {
+                    new Audio('data:audio/wav;base64,UklGRl9vT1JXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABkYXRhAAoAAAAHCAgIBAQEAAgICAgAAAA=').play();
+                } catch (e) {
+                    console.error("Audio playback failed.", e);
+                }
+
+                isFocusMode = !isFocusMode;
+                timeRemaining = isFocusMode ? FOCUS_TIME : BREAK_TIME;
+
+                // Prompt the user to start the next session
+                statusBox.textContent = isFocusMode 
+                    ? "Time for the next focus session! Click Start." 
+                    : "Break is over! Time to start the next break. Click Start.";
+                
+                updateUI();
+            }
+        }
+
+        /**
+         * Starts or pauses the timer.
+         */
+        function toggleTimer() {
+            if (isRunning) {
+                clearInterval(intervalId);
+                isRunning = false;
+            } else {
+                isRunning = true;
+                intervalId = setInterval(tick, 1000);
+            }
+            updateUI();
+        }
+
+        /**
+         * Resets the timer to the current mode's default time.
+         */
+        function resetTimer() {
+            clearInterval(intervalId);
+            isRunning = false;
+            isFocusMode = true; // Always reset back to Focus Mode
+            timeRemaining = FOCUS_TIME;
+            updateUI();
+        }
+
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', toggleTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        // --- Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            updateUI();
+
+            // PWA Service Worker Registration
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(reg => console.log('Service Worker registered. Scope:', reg.scope))
+                    .catch(err => console.error('Service Worker registration failed:', err));
+            }
+
+            // Optional: Simple PWA Install Prompt Logic
+            let deferredPrompt;
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                console.log("PWA install prompt detected.");
+                // Note: The browser will often show its own install button.
+            });
+        });
+
+    </script>
+</body>
+</html>
